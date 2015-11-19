@@ -68,6 +68,8 @@ accessors, though, and invalid values will be ignored.
    methods. More details on this below.
  - **minLevel**: The minimum level to actually record logs at. String or Number.
    Defaults to 0.
+ - **bufferSize**: The maximum number of log entries that may be queued for
+   sending at a given moment. Default: `100`.
  - **secure:** If truthy, uses a tls connection. Default: `false`.
  - **timeout:** The time, in milliseconds, that inactivity should warrant
    closing the connection to the host until needed again. Defaults to three
@@ -85,7 +87,7 @@ accessors, though, and invalid values will be ignored.
  - **timestamp**: If truthy, prefix entries with an ISO timestamp (if strings)
    or add the same as a property (if objects). Default: `false`.
  - **withLevel**: Will prepend (string) or add property (object) indicating the
-   log level.
+   log level. Default: `true`.
  - **withStack**: If an object is or contains an `Error` object, setting this to
    `true` will cause the stack trace to be included. Default: `false.`
 
@@ -236,9 +238,16 @@ stdout, for example.
 ## Buffer & Connection Issues
 
 If there’s a problem with the connection, entries will be buffered to a max of
-60 entries. After that, error events will be emitted when trying to log further.
-If the buffer drains, normal logging can resume. If `console` is true, these log
-entries will still pass through there, but they will not make it to LogEntries.
+100 entries by default. After that, error events will be emitted when trying to
+log further. If the buffer drains, normal logging can resume. If `console` is
+true, these log entries will still display there, but they will not make it to
+LogEntries.
+
+You can adjust the maximum size of the buffer with the `bufferSize` option.
+You’ll want to raise it if you’re dealing with very high volume (either a high
+number of logs per second, or when log entries are unusually long on average).
+Outside of these situations, exceeding the max buffer size is more likely an
+indication of creating logs in a synchronous loop (which seems like a bad idea).
 
 If the connection fails, it will retry with an exponential backoff for several
 minutes. If it does not succeed in that time, an error is emitted. A ‘ban’ will
@@ -386,6 +395,56 @@ le_node, so unfortunately interoperability was not on my mind. You’ll wish to
 test thoroughly before updating an existing codebase to use the new client.
 
 ## Changelog (Post-Merge)
+
+### 1.1.2
+
+ - Update codependency to fix vulnerable dependency
+
+### 1.1.1
+
+ - Fixes handling of winston’s meta object (gcoonrod)
+
+### 1.1.0
+
+ - The `.end()` method will not synchronously terminate the underlying
+   connection anymore. Instead, it waits for drain before doing so.
+
+### 1.0.15
+
+ - Bubbles errors up correctly when using the Bunyan and Winston constructors
+ - Serializer no longer chokes on objects created with a null prototype
+
+### 1.0.14
+
+ - Allows setting port with a string instead of a number.
+
+### 1.0.13
+ 
+ - Fixes bug with winston transport’s `level` property.
+
+### 1.0.12
+
+ - Increased default buffer size
+ - Made bufferSize (highWaterMark) configurable
+
+### 1.0.10
+
+ - Fixes problems with setting custom host & port
+
+### 1.0.9
+
+ - Fixes serialization bug in cases where the root-level object is itself
+   exotic or otherwise does not ‘have own properties,’ including directly logged
+   errors.
+
+### 1.0.8
+
+ - Fixed bugged handling of Winston’s ‘meta’ parameter.
+
+### 1.0.7
+
+ - Fixed nested dependency issues with shrinkwrap.
+ - Various minor changes (docs, etc)
 
 ### 1.0.2
 

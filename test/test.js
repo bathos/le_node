@@ -1,4 +1,5 @@
-/* jshint node: true, esnext: true */
+/* eslint-disable */
+
 'use strict';
 
 // REQUIRES ////////////////////////////////////////////////////////////////////
@@ -37,7 +38,7 @@ tape('Weird value for custom levels object throws.', function(t) {
 	t.throws(levels.normalize.bind(null, { levels: 'cheese' }), 'string');
 	t.throws(levels.normalize.bind(null, { levels: NaN }), 'number (NaN)');
 	t.throws(levels.normalize.bind(null, { levels: true }), 'boolean');
-	
+
 	t.end();
 });
 
@@ -62,7 +63,7 @@ tape('Custom levels with invalid names throw.', function(t) {
 	t.throws(levels.normalize.bind(null, { levels: [ [] ] }), 'object');
 	t.throws(levels.normalize.bind(null, { levels: [ true ] }), 'boolean');
 	t.throws(levels.normalize.bind(null, { levels: [ NaN ] }), 'NaN');
-	
+
 	t.end();
 });
 
@@ -75,7 +76,7 @@ tape('Custom levels with duplicate names throw.', function(t) {
 
 	t.doesNotThrow(levels.normalize.bind(null, { levels: [ 'A', 'a' ] }),
 		'case sensitive');
-	
+
 	t.end();
 });
 
@@ -86,11 +87,11 @@ tape('Custom levels with conflicting names throw.', function(t) {
 	}
 
 	t.throws(makeLogger.bind(null, [ 'log' ]), 'own property');
-	
+
 	t.throws(makeLogger.bind(null, [ 'write' ]), 'inherited property');
 
 	t.doesNotThrow(makeLogger.bind(null, [ 'propX' ]), 'valid property');
-	
+
 	t.end();
 });
 
@@ -187,7 +188,7 @@ tape('Arguments and regex patterns are serialized.', function(t) {
 
 	var logger = new Logger({ token: x });
 
-	t.true(logger.serialize(argObj) === '[1,2,3]', 'arguments become arrays.')
+	t.true(logger.serialize(argObj) === '[1,2,3]', 'arguments become arrays.');
 
 	t.true(logger.serialize(regObj) === '"/abc/"', 'patterns become strings');
 
@@ -196,7 +197,7 @@ tape('Arguments and regex patterns are serialized.', function(t) {
 
 tape('Custom value transformer is respected.', function(t) {
 	function alwaysKittens(key, val) {
-		return _.isObject(val) ? val : 'kittens'; 
+		return _.isObject(val) ? val : 'kittens';
 	}
 
 	var log = {
@@ -231,6 +232,22 @@ tape('Circular references don’t make the sad times.', function(t) {
 	t.true(res, 'circular reference allowed');
 
 	t.equal(res.iAm, '[Circular ~]', 'circular reference indicated');
+
+	t.end();
+});
+
+tape('Object.create(null) objects don’t destroy everything.', function(t) {
+	var nullObj = Object.create(null);
+
+	nullObj.prop = 1;
+
+	var logger = new Logger({ token: x });
+
+	var res = JSON.parse(logger.serialize(nullObj));
+
+	t.true(res, 'null-prototype object doesn’t throw');
+
+	t.equal(res.prop, 1, 'properties are still seen');
 
 	t.end();
 });
@@ -444,6 +461,27 @@ tape('JSON logs match expected pattern.', function(t) {
 
 });
 
+tape('Directly logged error objects survive.', function(t) {
+	t.plan(1);
+	t.timeoutAfter(500);
+
+	var message = 'warp breach imminent';
+	var error = new Error(message);
+	var logger = new Logger({ token: x });
+
+	logger.on('error', function(err) {
+		t.comment(err.stack);
+		t.fail('error logged');
+	});
+
+	mockTest(function(data) {
+		var log = JSON.parse(data.substr(37));
+		t.equal(log.message, message, 'error logged');
+	});
+
+	logger.log(error);
+});
+
 tape('Invalid calls to log methods emit error.', function(t) {
 	t.plan(2);
 	t.timeoutAfter(500);
@@ -513,6 +551,29 @@ tape('Winston integration is provided.', function(t) {
 	winston.warn('mysterious radiation');
 });
 
+tape("Winston supports json logging.", function(t) {
+	t.plan(2);
+	t.timeoutAfter(2000);
+
+	var logger = new (winston.Logger)({
+    	transports: [
+      		new (winston.transports.Logentries)({ token: x, json: true })
+    	]
+  	});
+
+	mockTest(function(data) {
+		t.pass("winston logs in json format");
+		var expect = {
+			message: "msg",
+			foo: "bar",
+			level: "warn"
+		};
+		t.equal(data, x + " " + JSON.stringify(expect) + '\n', 'json as expected');
+	});
+
+	logger.warn("msg", {foo: "bar"});
+});
+
 // BUNYAN STREAM ///////////////////////////////////////////////////////////////
 
 tape('Bunyan integration is provided.', function(t) {
@@ -548,4 +609,3 @@ tape('Bunyan integration is provided.', function(t) {
 
 	logger[defaults.bunyanLevels[3]]({ yes: 'okay' });
 });
-
